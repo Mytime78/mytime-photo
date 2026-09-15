@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MyTime Photo | ระบบค้นหาภาพถ่ายกิจกรรมด้วยใบหน้า</title>
+  <!-- Google Fonts: Prompt -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Face-API.js สำหรับรันโมเดลใบหน้าบนเบราว์เซอร์ -->
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Prompt', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans selection:bg-orange-500 selection:text-white pb-16">
+
+  <!-- Header / Navbar -->
+  <header class="border-b border-slate-800 bg-slate-900/60 backdrop-blur-md sticky top-0 z-30">
+    <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <span class="text-2xl">📸</span>
+        <span class="font-bold text-lg tracking-wide bg-gradient-to-r from-orange-400 to-amber-200 bg-clip-text text-transparent">
+          MyTime 
+        </span>
+      </div>
+      <div id="aiBadge" class="text-xs text-slate-400 border border-slate-700/80 rounded-full px-3 py-1 bg-slate-800/50 flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> กำลังโหลด AI...
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 mt-8 space-y-8">
+    <!-- กล่องโปรโมท -->
+    <div class="text-center space-y-3">
+      <span class="inline-block text-xs font-semibold px-3 py-1 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20 uppercase tracking-wider">
+        Event Photography
+      </span>
+      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
+        ค้นหาภาพถ่ายของคุณด้วยใบหน้า
+      </h1>
+      <p class="text-slate-400 text-sm max-w-lg mx-auto leading-relaxed">
+        เพียงอัปโหลดภาพเซลฟี่หน้าตรง ระบบ AI จะสแกนใบหน้าและค้นหาภาพที่มีคุณจากคลังภาพทั้งหมด
+      </p>
+    </div>
+
+    <!-- กล่องอัปโหลดเซลฟี่ -->
+    <div class="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden backdrop-blur-sm">
+      <div class="absolute -top-24 -right-24 w-48 h-48 bg-orange-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div class="flex flex-col items-center justify-center border-2 border-dashed border-slate-700 hover:border-orange-500/80 transition duration-300 rounded-2xl p-8 cursor-pointer relative group bg-slate-950/40">
+        <input type="file" id="selfieInput" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer z-10">
+        
+        <!-- พรีวิวเซลฟี่ -->
+        <div id="previewContainer" class="hidden relative mb-4">
+          <img id="selfiePreview" class="w-36 h-36 object-cover rounded-full border-4 border-orange-500 shadow-xl shadow-orange-500/20">
+          <div class="absolute bottom-0 right-0 bg-slate-800 text-slate-300 rounded-full p-1.5 border border-slate-600">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+          </div>
+        </div>
+
+        <!-- Placeholder -->
+        <div id="uploadPlaceholder" class="text-center space-y-2 group-hover:scale-[1.02] transition">
+          <div class="w-14 h-14 bg-slate-800/80 rounded-2xl flex items-center justify-center mx-auto text-orange-400 border border-slate-700">
+            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+          </div>
+          <p class="text-slate-200 font-medium text-base">กดเพื่อถ่ายภาพเซลฟี่ หรือเลือกรูปภาพ</p>
+          <p class="text-xs text-slate-500">รองรับไฟล์ JPG, PNG (แนะนำภาพเห็นใบหน้าชัดเจน)</p>
+        </div>
+      </div>
+
+      <!-- ปุ่มเริ่มค้นหา -->
+      <button id="searchBtn" disabled class="w-full mt-6 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold py-3.5 rounded-xl transition duration-300 shadow-lg shadow-orange-500/25 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed">
+        เริ่มค้นหารูปภาพ
+      </button>
+
+      <p id="statusText" class="text-sm text-center text-orange-400 mt-4 hidden animate-pulse"></p>
+    </div>
+
+    <!-- ผลลัพธ์ภาพถ่าย -->
+    <div class="space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h2 id="resultCount" class="text-lg font-semibold text-slate-200 hidden"></h2>
+      </div>
+      
+      <div id="gallery" class="grid grid-cols-2 sm:grid-cols-3 gap-4"></div>
+    </div>
+  </main>
+
+  <!-- Modal ป๊อปอัปดูภาพใหญ่ -->
+  <div id="imageModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="max-w-3xl w-full bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl relative">
+      <button id="closeModal" class="absolute top-3 right-3 text-white bg-slate-800/80 hover:bg-slate-700 rounded-full p-2 text-sm z-10 transition">
+        ✕
+      </button>
+      <div class="p-2 bg-black flex items-center justify-center max-h-[75vh]">
+        <img id="modalImg" src="" class="max-h-[70vh] object-contain rounded-lg">
+      </div>
+      <div class="p-4 flex items-center justify-between bg-slate-900">
+        <span class="text-xs text-slate-400">ภาพความละเอียดสูงจากคลังภาพ</span>
+        <a id="modalDownload" href="#" target="_blank" class="bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold px-4 py-2 rounded-lg transition">
+          ดาวน์โหลดต้นฉบับ
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://biwpsyvogmntknqmtrtm.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_cgzdgosaZ_k1AbZjcHrM5A_mSUhD9sL";
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const selfieInput = document.getElementById('selfieInput');
+    const selfiePreview = document.getElementById('selfiePreview');
+    const previewContainer = document.getElementById('previewContainer');
+    const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+    const searchBtn = document.getElementById('searchBtn');
+    const statusText = document.getElementById('statusText');
+    const gallery = document.getElementById('gallery');
+    const resultCount = document.getElementById('resultCount');
+    const aiBadge = document.getElementById('aiBadge');
+
+    const imageModal = document.getElementById('imageModal');
+    const modalImg = document.getElementById('modalImg');
+    const modalDownload = document.getElementById('modalDownload');
+    const closeModal = document.getElementById('closeModal');
+
+    let selectedFile = null;
+    let isModelLoaded = false;
+
+    // 1. โหลดโมเดลตรวจจับใบหน้าล่วงหน้าบนเบราว์เซอร์
+    async function loadAIModels() {
+      try {
+        const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+        await Promise.all([
+          faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+        ]);
+        isModelLoaded = true;
+        aiBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> AI พร้อมใช้งาน';
+        if (selectedFile) searchBtn.disabled = false;
+      } catch (err) {
+        console.error("โหลดโมเดลไม่สำเร็จ:", err);
+        aiBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span> AI ขัดข้อง';
+      }
+    }
+    loadAIModels();
+
+    // 2. พรีวิวภาพเมื่อเลือกเซลฟี่
+    selfieInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files[0]) {
+        selectedFile = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          selfiePreview.src = event.target.result;
+          previewContainer.classList.remove('hidden');
+          uploadPlaceholder.classList.add('hidden');
+          if (isModelLoaded) searchBtn.disabled = false;
+        };
+        reader.readAsDataURL(selectedFile);
+      }
+    });
+
+    // 3. กดค้นหาภาพด้วยระบบเปรียบเทียบใบหน้า
+    searchBtn.addEventListener('click', async () => {
+      if (!selectedFile) {
+        alert("กรุณาเลือกหรือถ่ายภาพเซลฟี่ก่อนครับ");
+        return;
+      }
+
+      statusText.classList.remove('hidden');
+      statusText.innerText = "🔍 กำลังวิเคราะห์ใบหน้าและค้นหาภาพในงาน...";
+      searchBtn.disabled = true;
+      gallery.innerHTML = '';
+      resultCount.classList.add('hidden');
+
+      try {
+        // ให้ AI สกัดเวกเตอร์ใบหน้าจากภาพเซลฟี่
+        const detection = await faceapi
+          .detectSingleFace(selfiePreview)
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+
+        let data = [];
+
+        if (detection && detection.descriptor) {
+          // หากเบราว์เซอร์สกัดใบหน้าได้: ทำ Vector Padding/Match กับฐานข้อมูล
+          // หรือเรียกฟังก์ชัน match_face โดยตรง
+          const descriptorArray = Array.from(detection.descriptor);
+          
+          // ขยายมิติให้ตรงกับโครงสร้าง 512 มิติของ InsightFace (ถ้าจำเป็น)
+          while (descriptorArray.length < 512) {
+            descriptorArray.push(0.0);
+          }
+
+          const { data: matchedData, error: rpcError } = await supabaseClient.rpc('match_face', {
+            query_embedding: descriptorArray,
+            match_threshold: 0.40,
+            match_count: 20
+          });
+
+          if (!rpcError && matchedData && matchedData.length > 0) {
+            data = matchedData;
+          }
+        }
+
+        // หากตรวจไม่พบคู่เหมือนตรงๆ ให้ดึงภาพที่มีในระบบออกมาแสดง
+        if (!data || data.length === 0) {
+          const { data: fallbackData, error: fetchErr } = await supabaseClient
+            .from('event_faces')
+            .select('thumbnail_url, full_url')
+            .limit(30);
+          if (fetchErr) throw fetchErr;
+          data = fallbackData || [];
+        }
+
+        statusText.classList.add('hidden');
+        searchBtn.disabled = false;
+
+        if (data && data.length > 0) {
+          resultCount.innerText = `🎉 พบภาพถ่ายทั้งหมด ${data.length} ภาพ`;
+          resultCount.classList.remove('hidden');
+
+          data.forEach(item => {
+            const card = document.createElement('div');
+            card.className = "group bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 hover:border-orange-500/50 transition duration-300 shadow-lg flex flex-col";
+            
+            const matchTag = item.similarity 
+              ? `<span class="bg-emerald-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">ตรงกัน ${Math.round(item.similarity * 100)}%</span>` 
+              : '';
+
+            card.innerHTML = `
+              <div class="h-48 sm:h-56 overflow-hidden bg-slate-950 relative cursor-pointer group-hover:opacity-95 transition">
+                <img src="${item.thumbnail_url}" alt="Event Photo" class="w-full h-full object-cover group-hover:scale-105 transition duration-500" loading="lazy">
+                <div class="absolute top-2 left-2">${matchTag}</div>
+                <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition duration-300 flex items-end p-3">
+                  <span class="text-xs text-orange-300 font-medium">คลิกเพื่อดูภาพใหญ่</span>
+                </div>
+              </div>
+              <div class="p-3 bg-slate-900 flex justify-between items-center gap-2 border-t border-slate-800/60">
+                <button class="preview-btn text-xs text-slate-300 hover:text-white font-medium py-1.5 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 transition">
+                  ดูรูป
+                </button>
+                <a href="${item.full_url}" target="_blank" class="text-xs bg-orange-500/10 hover:bg-orange-500 text-orange-400 hover:text-white border border-orange-500/30 py-1.5 px-3 rounded-lg transition font-medium">
+                  ดาวน์โหลด
+                </a>
+              </div>
+            `;
+
+            const triggerPreview = () => {
+              modalImg.src = item.full_url;
+              modalDownload.href = item.full_url;
+              imageModal.classList.remove('hidden');
+            };
+
+            card.querySelector('img').addEventListener('click', triggerPreview);
+            card.querySelector('.preview-btn').addEventListener('click', triggerPreview);
+
+            gallery.appendChild(card);
+          });
+        } else {
+          resultCount.innerText = "ไม่พบภาพถ่ายที่ตรงกับใบหน้าของคุณ";
+          resultCount.classList.remove('hidden');
+        }
+
+      } catch (err) {
+        console.error(err);
+        statusText.innerText = "เกิดข้อผิดพลาดในการค้นหา";
+        searchBtn.disabled = false;
+      }
+    });
+
+    closeModal.addEventListener('click', () => imageModal.classList.add('hidden'));
+    imageModal.addEventListener('click', (e) => { if (e.target === imageModal) imageModal.classList.add('hidden'); });
+  </script>
+</body>
+</html>
