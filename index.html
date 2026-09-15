@@ -249,7 +249,7 @@
       try {
         const { data, error } = await supabaseClient.rpc('match_face', {
           query_embedding: extractedDescriptor,
-          match_threshold: 0.60,
+          match_threshold: 0.55,
           match_count: 200
         });
 
